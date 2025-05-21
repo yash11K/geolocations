@@ -5,6 +5,8 @@ import { getReservationByCustomerId, getReservationByDriverId } from '../reserva
 
 @Injectable()
 export class LocationService {
+  private lastKnownLocations: Map<string, LocationDto> = new Map();
+
   constructor(private readonly userConnectionManager: UserConnectionManager) {}
 
   async handleLocationUpdate(
@@ -32,6 +34,9 @@ export class LocationService {
         longitude: Number(longitude),
         reservationId: client.reservationId
       };
+
+      // Store the last known location
+      this.lastKnownLocations.set(client.userId, payload);
 
       const reservation = client.userType === 'customer'
         ? getReservationByCustomerId(client.userId)
@@ -92,5 +97,62 @@ export class LocationService {
       }
     }
     return data;
+  }
+
+  async handlePing(
+    client: SocketWithUser,
+    callback?: (response: LocationResponse) => void
+  ): Promise<LocationResponse> {
+    try {
+      if (!client.userId || !client.userType || !client.reservationId) {
+        throw new Error('User not properly registered');
+      }
+
+      const reservation = client.userType === 'customer'
+        ? getReservationByCustomerId(client.userId)
+        : getReservationByDriverId(client.userId);
+
+      if (!reservation) {
+        throw new Error('Reservation not found');
+      }
+
+      const pairedUserId = client.userType === 'customer'
+        ? reservation.driverId
+        : reservation.customerId;
+
+      const pairedUser = this.userConnectionManager.getConnectedUser(pairedUserId);
+      
+      if (pairedUser) {
+        // Simply emit PING event to the paired user
+        pairedUser.socket.emit('ping', {
+          fromUserId: client.userId,
+          fromUserType: client.userType,
+          reservationId: client.reservationId
+        });
+      }
+
+      const response: LocationResponse = {
+        status: 'success',
+        message: 'PING sent successfully',
+        reservationId: client.reservationId
+      };
+
+      if (callback) {
+        callback(response);
+      }
+
+      return response;
+    } catch (error) {
+      const errorResponse: LocationResponse = {
+        status: 'error',
+        message: error.message
+      };
+
+      if (callback) {
+        callback(errorResponse);
+      }
+
+      return errorResponse;
+    }
   }
 }

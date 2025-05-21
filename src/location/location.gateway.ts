@@ -48,6 +48,9 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
       console.log(`👥 Total connected users: ${this.userConnectionManager.getConnectedUsersCount()}`);
 
       client.emit('connection_status', status);
+
+      // Trigger PING to get initial location
+      await this.handlePing(client);
     } catch (error) {
       console.error('❌ Connection error:', error.message);
       client.disconnect(true);
@@ -75,6 +78,28 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
       return response;
     } catch (error) {
       console.error('❌ Location error:', error.message);
+      const errorResponse: LocationResponse = {
+        status: 'error' as const,
+        message: error.message
+      };
+      if (callback) {
+        callback(errorResponse);
+      }
+      return errorResponse;
+    }
+  }
+
+  @SubscribeMessage('ping')
+  async handlePing(
+    @ConnectedSocket() client: SocketWithUser,
+    callback?: (response: LocationResponse) => void
+  ) {
+    try {
+      const response = await this.locationService.handlePing(client, callback);
+      console.log(`📡 PING from ${client.userId} (${client.userType}):`, response);
+      return response;
+    } catch (error) {
+      console.error('❌ PING error:', error.message);
       const errorResponse: LocationResponse = {
         status: 'error' as const,
         message: error.message
