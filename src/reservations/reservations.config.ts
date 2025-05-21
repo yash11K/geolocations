@@ -24,6 +24,18 @@ export const RESERVATION_MAPPINGS: ReservationMapping[] = [
     customerId: 'customer3',
     driverId: 'driver3',
     status: 'active'
+  },
+  {
+    reservationId: 'RES004',
+    customerId: 'customer4',
+    driverId: 'driver1',
+    status: 'active'
+  },
+  {
+    reservationId: 'RES005',
+    customerId: 'customer5',
+    driverId: 'driver2',
+    status: 'active'
   }
 ];
 
